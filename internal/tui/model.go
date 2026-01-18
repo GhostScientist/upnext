@@ -69,6 +69,32 @@ func New(s store.Store) (Model, error) {
 		table.WithColumns(columns),
 		table.WithFocused(true),
 		table.WithHeight(10),
+		table.WithKeyMap(table.KeyMap{
+			LineUp: key.NewBinding(
+				key.WithKeys("up", "k"),
+			),
+			LineDown: key.NewBinding(
+				key.WithKeys("down", "j"),
+			),
+			PageUp: key.NewBinding(
+				key.WithKeys("pgup", "ctrl+u"),
+			),
+			PageDown: key.NewBinding(
+				key.WithKeys("pgdown", "ctrl+d"),
+			),
+			HalfPageUp: key.NewBinding(
+				key.WithKeys("ctrl+b"),
+			),
+			HalfPageDown: key.NewBinding(
+				key.WithKeys("ctrl+f"),
+			),
+			GotoTop: key.NewBinding(
+				key.WithKeys("home", "g"),
+			),
+			GotoBottom: key.NewBinding(
+				key.WithKeys("end", "G"),
+			),
+		}),
 	)
 
 	// Style the table
@@ -305,7 +331,8 @@ func (k KeyMap) ShortHelp() []key.Binding {
 // FullHelp returns keybindings for the expanded help view
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Done, k.Add},
+		{k.Up, k.Down, k.PageUp, k.PageDown},
+		{k.GotoTop, k.GotoBottom, k.Done, k.Add},
 		{k.Drop, k.Bump, k.Help, k.Quit},
 	}
 }

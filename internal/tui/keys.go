@@ -7,19 +7,23 @@ import (
 
 // KeyMap defines the key bindings using bubbles key.Binding
 type KeyMap struct {
-	Up      key.Binding
-	Down    key.Binding
-	Done    key.Binding
-	Add     key.Binding
-	Drop    key.Binding
-	Bump    key.Binding
-	Help    key.Binding
-	Quit    key.Binding
-	Confirm key.Binding
-	Cancel  key.Binding
-	Tab     key.Binding
-	Left    key.Binding
-	Right   key.Binding
+	Up         key.Binding
+	Down       key.Binding
+	PageUp     key.Binding
+	PageDown   key.Binding
+	GotoTop    key.Binding
+	GotoBottom key.Binding
+	Done       key.Binding
+	Add        key.Binding
+	Drop       key.Binding
+	Bump       key.Binding
+	Help       key.Binding
+	Quit       key.Binding
+	Confirm    key.Binding
+	Cancel     key.Binding
+	Tab        key.Binding
+	Left       key.Binding
+	Right      key.Binding
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -31,6 +35,22 @@ var DefaultKeyMap = KeyMap{
 	Down: key.NewBinding(
 		key.WithKeys("j", "down"),
 		key.WithHelp("↓/j", "down"),
+	),
+	PageUp: key.NewBinding(
+		key.WithKeys("pgup", "ctrl+u"),
+		key.WithHelp("pgup/^u", "page up"),
+	),
+	PageDown: key.NewBinding(
+		key.WithKeys("pgdown", "ctrl+d"),
+		key.WithHelp("pgdn/^d", "page down"),
+	),
+	GotoTop: key.NewBinding(
+		key.WithKeys("home", "g"),
+		key.WithHelp("g/home", "go to top"),
+	),
+	GotoBottom: key.NewBinding(
+		key.WithKeys("end", "G"),
+		key.WithHelp("G/end", "go to bottom"),
 	),
 	Done: key.NewBinding(
 		key.WithKeys("enter", "d"),
