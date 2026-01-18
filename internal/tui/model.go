@@ -56,12 +56,13 @@ func New(s store.Store) (Model, error) {
 		return Model{}, err
 	}
 
-	// Create table
+	// Create table with expanded columns for fuller view
 	columns := []table.Column{
-		{Title: "", Width: 3},          // Status icon
-		{Title: "Pri", Width: 5},       // Priority
-		{Title: "Task", Width: 40},     // Task text
-		{Title: "Age", Width: 10},      // Age
+		{Title: "", Width: 3},              // Status icon
+		{Title: "Pri", Width: 5},           // Priority
+		{Title: "Task", Width: 35},         // Task text
+		{Title: "Description", Width: 25},  // Description preview
+		{Title: "Age", Width: 10},          // Age
 	}
 
 	t := table.New(
@@ -128,11 +129,28 @@ func New(s store.Store) (Model, error) {
 // refreshTable updates the table rows from the data
 func (m *Model) refreshTable() {
 	rows := make([]table.Row, len(m.data.Items))
+
+	// Calculate column widths dynamically
+	taskWidth := 33
+	descWidth := 23
+	if m.width > 0 {
+		availableWidth := m.width - 30
+		if availableWidth > 40 {
+			taskWidth = availableWidth * 60 / 100 - 2
+			descWidth = availableWidth - taskWidth - 4
+		}
+	}
+
 	for i, item := range m.data.Items {
+		desc := item.Description
+		if desc == "" {
+			desc = "-"
+		}
 		rows[i] = table.Row{
 			ui.IconUnchecked,
 			m.priorityIcon(item.Priority),
-			truncateText(item.Text, 38),
+			truncateText(item.Text, taskWidth),
+			truncateText(desc, descWidth),
 			formatAge(item.Created),
 		}
 	}

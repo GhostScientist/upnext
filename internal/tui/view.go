@@ -37,6 +37,12 @@ func (m Model) View() string {
 			sections = append(sections, m.renderEmptyState())
 		} else {
 			sections = append(sections, m.renderTable())
+			// Show task details panel for selected task
+			details := m.renderTaskDetails()
+			if details != "" {
+				sections = append(sections, "")
+				sections = append(sections, details)
+			}
 		}
 	}
 
@@ -262,7 +268,7 @@ func (m Model) renderCelebration() string {
 	)
 }
 
-// Unused but keeping for reference - shows selected task details
+// renderTaskDetails shows expanded details for the selected task
 func (m Model) renderTaskDetails() string {
 	if len(m.data.Items) == 0 {
 		return ""
@@ -276,20 +282,51 @@ func (m Model) renderTaskDetails() string {
 	item := m.data.Items[cursor]
 	var lines []string
 
+	// Title with task number indicator
+	taskNum := fmt.Sprintf("Task %d of %d", cursor+1, len(m.data.Items))
+	headerLine := ui.DimStyle.Render(taskNum)
+	lines = append(lines, headerLine)
+	lines = append(lines, "")
+
+	// Full task text
 	lines = append(lines, ui.TitleStyle.Render(item.Text))
+
+	// Description (if available)
 	if item.Description != "" {
-		lines = append(lines, ui.DimStyle.Render(item.Description))
+		lines = append(lines, "")
+		descLabel := ui.LabelStyle.Render("Description:")
+		lines = append(lines, descLabel)
+		// Word wrap description for better readability
+		descText := ui.SubtitleStyle.Render(item.Description)
+		lines = append(lines, descText)
 	}
 
+	lines = append(lines, "")
+
+	// Priority and age on same line
 	priStyle := ui.PriorityLowStyle
+	priIcon := ui.IconLow
 	switch item.Priority {
 	case model.PriorityHigh:
 		priStyle = ui.PriorityHighStyle
+		priIcon = ui.IconHigh
 	case model.PriorityMedium:
 		priStyle = ui.PriorityMediumStyle
+		priIcon = ui.IconMedium
 	}
-	lines = append(lines, priStyle.Render("Priority: "+item.Priority.String()))
+	priText := priStyle.Render(priIcon + " " + item.Priority.String() + " priority")
+	ageText := ui.DimStyle.Render("Created: " + formatAge(item.Created))
+	infoLine := priText + "  " + ui.DimStyle.Render("•") + "  " + ageText
+	lines = append(lines, infoLine)
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
-	return ui.DialogStyle.Width(m.width - 10).Render(content)
+
+	// Create a styled panel
+	panelStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(ui.Surface1).
+		Padding(0, 1).
+		Width(m.width - 6)
+
+	return panelStyle.Render(content)
 }

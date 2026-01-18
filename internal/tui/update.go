@@ -26,14 +26,25 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.table.SetHeight(tableHeight)
 
 		// Update column widths based on available space
-		taskWidth := m.width - 30 // Reserve space for other columns
+		// Reserve space: status(3) + pri(5) + age(10) + padding(~12) = 30
+		availableWidth := m.width - 30
+		if availableWidth < 40 {
+			availableWidth = 40
+		}
+		// Split available space between task and description (60/40)
+		taskWidth := availableWidth * 60 / 100
+		descWidth := availableWidth - taskWidth
 		if taskWidth < 20 {
 			taskWidth = 20
+		}
+		if descWidth < 15 {
+			descWidth = 15
 		}
 		m.table.SetColumns([]table.Column{
 			{Title: "", Width: 3},
 			{Title: "Pri", Width: 5},
 			{Title: "Task", Width: taskWidth},
+			{Title: "Description", Width: descWidth},
 			{Title: "Age", Width: 10},
 		})
 		m.refreshTable()
