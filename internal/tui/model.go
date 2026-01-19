@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/charmbracelet/bubbles/help"
@@ -27,6 +28,14 @@ const (
 	ModeConfirm
 )
 
+// Tab represents which tab is active
+type Tab int
+
+const (
+	TabActive Tab = iota
+	TabCompleted
+)
+
 // Model is the main Bubble Tea model
 type Model struct {
 	data           *model.Data
@@ -37,6 +46,7 @@ type Model struct {
 	width          int
 	height         int
 	mode           Mode
+	tab            Tab
 	titleInput     textinput.Model
 	descInput      textinput.Model
 	priorityIndex  int
@@ -44,13 +54,17 @@ type Model struct {
 	celebrationMsg string
 	confirmAction  string
 	err            error
+	cwd            string // Current working directory for context filtering
+	showAllTasks   bool   // If true, show all tasks regardless of context
+	filteredItems  []model.Todo
+	filteredArchive []model.ArchivedTodo
 }
 
 // celebrationTickMsg is sent to end the celebration animation
 type celebrationTickMsg struct{}
 
-// New creates a new TUI model
-func New(s store.Store) (Model, error) {
+// NewWithContext creates a new TUI model with context awareness
+func NewWithContext(s store.Store, cwd string, showAll bool) (Model, error) {
 	data, err := s.Load()
 	if err != nil {
 		return Model{}, err
@@ -58,11 +72,12 @@ func New(s store.Store) (Model, error) {
 
 	// Create table with expanded columns for fuller view
 	columns := []table.Column{
-		{Title: "", Width: 3},              // Status icon
-		{Title: "Pri", Width: 5},           // Priority
-		{Title: "Task", Width: 35},         // Task text
-		{Title: "Description", Width: 25},  // Description preview
-		{Title: "Age", Width: 10},          // Age
+		{Title: "", Width: 3},             // Status icon
+		{Title: "Pri", Width: 5},          // Priority
+		{Title: "Task", Width: 30},        // Task text
+		{Title: "Description", Width: 20}, // Description preview
+		{Title: "Context", Width: 15},     // Context/path
+		{Title: "Age", Width: 10},         // Age
 	}
 
 	t := table.New(
@@ -97,16 +112,16 @@ func New(s store.Store) (Model, error) {
 		}),
 	)
 
-	// Style the table
+	// Style the table with vibrant colors
 	s2 := table.DefaultStyles()
 	s2.Header = s2.Header.
 		BorderStyle(lipgloss.NormalBorder()).
-		BorderForeground(ui.Surface1).
+		BorderForeground(ui.BrightViolet).
 		BorderBottom(true).
 		Bold(true).
-		Foreground(ui.Mauve)
+		Foreground(ui.NeonPurple)
 	s2.Selected = s2.Selected.
-		Foreground(ui.Text).
+		Foreground(ui.ElectricBlue).
 		Background(ui.Surface0).
 		Bold(true)
 	s2.Cell = s2.Cell.
@@ -115,7 +130,7 @@ func New(s store.Store) (Model, error) {
 
 	// Create help
 	h := help.New()
-	h.Styles.ShortKey = lipgloss.NewStyle().Foreground(ui.Mauve).Bold(true)
+	h.Styles.ShortKey = lipgloss.NewStyle().Foreground(ui.ElectricBlue).Bold(true)
 	h.Styles.ShortDesc = lipgloss.NewStyle().Foreground(ui.Subtext0)
 	h.Styles.ShortSeparator = lipgloss.NewStyle().Foreground(ui.Surface1)
 
@@ -143,44 +158,93 @@ func New(s store.Store) (Model, error) {
 		width:         80,
 		height:        24,
 		mode:          ModeNormal,
+		tab:           TabActive,
 		titleInput:    titleInput,
 		descInput:     descInput,
 		priorityIndex: 1, // Default to Medium
+		cwd:           cwd,
+		showAllTasks:  showAll,
 	}
 
+	m.refreshFiltered()
 	m.refreshTable()
 	return m, nil
 }
 
+// New creates a new TUI model (legacy, no context)
+func New(s store.Store) (Model, error) {
+	cwd, _ := os.Getwd()
+	return NewWithContext(s, cwd, false)
+}
+
+// refreshFiltered updates the filtered items based on context
+func (m *Model) refreshFiltered() {
+	if m.showAllTasks || m.cwd == "" {
+		m.filteredItems = m.data.Items
+		m.filteredArchive = m.data.Archive
+	} else {
+		m.filteredItems = m.data.FilterByContext(m.cwd)
+		m.filteredArchive = m.data.FilterArchiveByContext(m.cwd)
+	}
+}
+
 // refreshTable updates the table rows from the data
 func (m *Model) refreshTable() {
-	rows := make([]table.Row, len(m.data.Items))
+	m.refreshFiltered()
 
 	// Calculate column widths dynamically
-	taskWidth := 33
-	descWidth := 23
+	taskWidth := 28
+	descWidth := 18
+	ctxWidth := 13
 	if m.width > 0 {
-		availableWidth := m.width - 30
-		if availableWidth > 40 {
-			taskWidth = availableWidth * 60 / 100 - 2
-			descWidth = availableWidth - taskWidth - 4
+		availableWidth := m.width - 35 // Reserve for status, pri, age, padding
+		if availableWidth > 60 {
+			taskWidth = availableWidth * 45 / 100
+			descWidth = availableWidth * 30 / 100
+			ctxWidth = availableWidth * 25 / 100
 		}
 	}
 
-	for i, item := range m.data.Items {
-		desc := item.Description
-		if desc == "" {
-			desc = "-"
+	if m.tab == TabActive {
+		rows := make([]table.Row, len(m.filteredItems))
+		for i, item := range m.filteredItems {
+			desc := item.Description
+			if desc == "" {
+				desc = "-"
+			}
+			ctx := model.GetContextDisplay(item.Context, m.cwd)
+			rows[i] = table.Row{
+				ui.IconUnchecked,
+				m.priorityIcon(item.Priority),
+				truncateText(item.Text, taskWidth),
+				truncateText(desc, descWidth),
+				truncateText(ctx, ctxWidth),
+				formatAge(item.Created),
+			}
 		}
-		rows[i] = table.Row{
-			ui.IconUnchecked,
-			m.priorityIcon(item.Priority),
-			truncateText(item.Text, taskWidth),
-			truncateText(desc, descWidth),
-			formatAge(item.Created),
+		m.table.SetRows(rows)
+	} else {
+		// Completed tab - show archived items (most recent first)
+		rows := make([]table.Row, len(m.filteredArchive))
+		for i := range m.filteredArchive {
+			// Reverse order - most recent first
+			item := m.filteredArchive[len(m.filteredArchive)-1-i]
+			desc := item.Description
+			if desc == "" {
+				desc = "-"
+			}
+			ctx := model.GetContextDisplay(item.Context, m.cwd)
+			rows[i] = table.Row{
+				ui.IconChecked,
+				m.priorityIcon(item.Priority),
+				truncateText(item.Text, taskWidth),
+				truncateText(desc, descWidth),
+				truncateText(ctx, ctxWidth),
+				formatAge(item.Completed),
+			}
 		}
+		m.table.SetRows(rows)
 	}
-	m.table.SetRows(rows)
 }
 
 func (m *Model) priorityIcon(p model.Priority) string {
@@ -222,7 +286,7 @@ func (m Model) Init() tea.Cmd {
 	return nil
 }
 
-// AddTodo adds a new todo item
+// AddTodo adds a new todo item with context
 func (m *Model) AddTodo(text, description string, priority model.Priority) {
 	if text == "" {
 		return
@@ -235,6 +299,7 @@ func (m *Model) AddTodo(text, description string, priority model.Priority) {
 		Priority:    priority,
 		Created:     time.Now(),
 		Position:    0,
+		Context:     m.cwd, // Set context to current working directory
 	}
 
 	// Shift all positions down
@@ -250,24 +315,38 @@ func (m *Model) AddTodo(text, description string, priority model.Priority) {
 
 // CompleteTodo marks the current todo as done
 func (m *Model) CompleteTodo() bool {
-	cursor := m.table.Cursor()
-	if len(m.data.Items) == 0 || cursor >= len(m.data.Items) {
+	if m.tab != TabActive {
 		return false
 	}
 
-	item := m.data.Items[cursor]
-
-	// Add to archive
-	archived := model.ArchivedTodo{
-		ID:        item.ID,
-		Text:      item.Text,
-		Created:   item.Created,
-		Completed: time.Now(),
+	cursor := m.table.Cursor()
+	if len(m.filteredItems) == 0 || cursor >= len(m.filteredItems) {
+		return false
 	}
-	m.data.Archive = append(m.data.Archive, archived)
 
-	// Remove from items
-	m.data.Items = append(m.data.Items[:cursor], m.data.Items[cursor+1:]...)
+	// Get the actual item from filtered list
+	item := m.filteredItems[cursor]
+
+	// Find and remove from actual data.Items
+	for i, dataItem := range m.data.Items {
+		if dataItem.ID == item.ID {
+			// Add to archive with all fields preserved
+			archived := model.ArchivedTodo{
+				ID:          item.ID,
+				Text:        item.Text,
+				Description: item.Description,
+				Priority:    item.Priority,
+				Created:     item.Created,
+				Completed:   time.Now(),
+				Context:     item.Context,
+			}
+			m.data.Archive = append(m.data.Archive, archived)
+
+			// Remove from items
+			m.data.Items = append(m.data.Items[:i], m.data.Items[i+1:]...)
+			break
+		}
+	}
 
 	// Update stats
 	m.data.Stats.TotalCompleted++
@@ -276,29 +355,126 @@ func (m *Model) CompleteTodo() bool {
 	return true
 }
 
-// DropTodo removes the current todo without archiving
-func (m *Model) DropTodo() {
-	cursor := m.table.Cursor()
-	if len(m.data.Items) == 0 || cursor >= len(m.data.Items) {
-		return
+// UncompleteTodo moves a completed task back to active
+func (m *Model) UncompleteTodo() bool {
+	if m.tab != TabCompleted {
+		return false
 	}
 
-	m.data.Items = append(m.data.Items[:cursor], m.data.Items[cursor+1:]...)
+	cursor := m.table.Cursor()
+	if len(m.filteredArchive) == 0 || cursor >= len(m.filteredArchive) {
+		return false
+	}
+
+	// Get the actual item from filtered list (reversed)
+	item := m.filteredArchive[len(m.filteredArchive)-1-cursor]
+
+	// Find and remove from actual data.Archive
+	for i, archiveItem := range m.data.Archive {
+		if archiveItem.ID == item.ID {
+			// Create active todo from archived
+			todo := model.Todo{
+				ID:          item.ID,
+				Text:        item.Text,
+				Description: item.Description,
+				Priority:    item.Priority,
+				Created:     item.Created,
+				Position:    0,
+				Context:     item.Context,
+			}
+
+			// Shift all positions down
+			for j := range m.data.Items {
+				m.data.Items[j].Position++
+			}
+
+			// Insert at the beginning
+			m.data.Items = append([]model.Todo{todo}, m.data.Items...)
+
+			// Remove from archive
+			m.data.Archive = append(m.data.Archive[:i], m.data.Archive[i+1:]...)
+			break
+		}
+	}
+
+	m.refreshTable()
+	return true
+}
+
+// DropTodo removes the current todo without archiving
+func (m *Model) DropTodo() {
+	if m.tab == TabActive {
+		cursor := m.table.Cursor()
+		if len(m.filteredItems) == 0 || cursor >= len(m.filteredItems) {
+			return
+		}
+
+		item := m.filteredItems[cursor]
+		for i, dataItem := range m.data.Items {
+			if dataItem.ID == item.ID {
+				m.data.Items = append(m.data.Items[:i], m.data.Items[i+1:]...)
+				break
+			}
+		}
+	} else {
+		// Drop from completed (permanently delete)
+		cursor := m.table.Cursor()
+		if len(m.filteredArchive) == 0 || cursor >= len(m.filteredArchive) {
+			return
+		}
+
+		item := m.filteredArchive[len(m.filteredArchive)-1-cursor]
+		for i, archiveItem := range m.data.Archive {
+			if archiveItem.ID == item.ID {
+				m.data.Archive = append(m.data.Archive[:i], m.data.Archive[i+1:]...)
+				break
+			}
+		}
+	}
 	m.refreshTable()
 }
 
 // BumpTodo moves the current todo to the top
 func (m *Model) BumpTodo() {
-	cursor := m.table.Cursor()
-	if len(m.data.Items) <= 1 || cursor == 0 || cursor >= len(m.data.Items) {
+	if m.tab != TabActive {
 		return
 	}
 
-	item := m.data.Items[cursor]
-	m.data.Items = append(m.data.Items[:cursor], m.data.Items[cursor+1:]...)
-	m.data.Items = append([]model.Todo{item}, m.data.Items...)
+	cursor := m.table.Cursor()
+	if len(m.filteredItems) <= 1 || cursor == 0 || cursor >= len(m.filteredItems) {
+		return
+	}
+
+	item := m.filteredItems[cursor]
+
+	// Find in actual data and move to top
+	for i, dataItem := range m.data.Items {
+		if dataItem.ID == item.ID {
+			m.data.Items = append(m.data.Items[:i], m.data.Items[i+1:]...)
+			m.data.Items = append([]model.Todo{dataItem}, m.data.Items...)
+			break
+		}
+	}
+
 	m.refreshTable()
 	m.table.SetCursor(0)
+}
+
+// SwitchTab switches between Active and Completed tabs
+func (m *Model) SwitchTab() {
+	if m.tab == TabActive {
+		m.tab = TabCompleted
+	} else {
+		m.tab = TabActive
+	}
+	m.refreshTable()
+	m.table.SetCursor(0)
+}
+
+// ToggleShowAll toggles between showing all tasks and context-filtered tasks
+func (m *Model) ToggleShowAll() {
+	m.showAllTasks = !m.showAllTasks
+	m.refreshTable()
 }
 
 // Save persists the current state
@@ -311,9 +487,23 @@ func (m *Model) IsCelebrationMilestone() bool {
 	return m.data.Stats.TotalCompleted > 0 && m.data.Stats.TotalCompleted%10 == 0
 }
 
-// Run starts the TUI application
+// GetCurrentItems returns the currently displayed items based on tab
+func (m *Model) GetCurrentItems() int {
+	if m.tab == TabActive {
+		return len(m.filteredItems)
+	}
+	return len(m.filteredArchive)
+}
+
+// Run starts the TUI application (legacy)
 func Run(s store.Store) error {
-	m, err := New(s)
+	cwd, _ := os.Getwd()
+	return RunWithContext(s, cwd, false)
+}
+
+// RunWithContext starts the TUI application with context awareness
+func RunWithContext(s store.Store, cwd string, showAll bool) error {
+	m, err := NewWithContext(s, cwd, showAll)
 	if err != nil {
 		return err
 	}
@@ -325,14 +515,15 @@ func Run(s store.Store) error {
 
 // ShortHelp returns keybindings to be shown in the mini help view
 func (k KeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Up, k.Down, k.Done, k.Add, k.Help, k.Quit}
+	return []key.Binding{k.Up, k.Down, k.Done, k.Add, k.Tab, k.Help, k.Quit}
 }
 
 // FullHelp returns keybindings for the expanded help view
 func (k KeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Up, k.Down, k.PageUp, k.PageDown},
-		{k.GotoTop, k.GotoBottom, k.Done, k.Add},
-		{k.Drop, k.Bump, k.Help, k.Quit},
+		{k.GotoTop, k.GotoBottom, k.Tab, k.ToggleAll},
+		{k.Done, k.Add, k.Drop, k.Bump},
+		{k.Help, k.Quit},
 	}
 }

@@ -21,9 +21,12 @@ type KeyMap struct {
 	Quit       key.Binding
 	Confirm    key.Binding
 	Cancel     key.Binding
-	Tab        key.Binding
+	Tab        key.Binding // Switch between Active/Completed tabs
+	FormTab    key.Binding // Tab between form fields
 	Left       key.Binding
 	Right      key.Binding
+	ToggleAll  key.Binding // Toggle show all tasks
+	Uncomplete key.Binding // Move completed task back to active
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -85,6 +88,10 @@ var DefaultKeyMap = KeyMap{
 		key.WithHelp("esc", "cancel"),
 	),
 	Tab: key.NewBinding(
+		key.WithKeys("1", "2"),
+		key.WithHelp("1/2", "switch tab"),
+	),
+	FormTab: key.NewBinding(
 		key.WithKeys("tab", "shift+tab"),
 		key.WithHelp("tab", "next field"),
 	),
@@ -95,6 +102,14 @@ var DefaultKeyMap = KeyMap{
 	Right: key.NewBinding(
 		key.WithKeys("right", "l"),
 		key.WithHelp("→/l", "right"),
+	),
+	ToggleAll: key.NewBinding(
+		key.WithKeys("A"),
+		key.WithHelp("A", "toggle all"),
+	),
+	Uncomplete: key.NewBinding(
+		key.WithKeys("u"),
+		key.WithHelp("u", "uncomplete"),
 	),
 }
 

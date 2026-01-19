@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -22,6 +23,10 @@ func (m Model) View() string {
 	sections = append(sections, m.renderHeader())
 	sections = append(sections, "")
 
+	// Tabs
+	sections = append(sections, m.renderTabs())
+	sections = append(sections, "")
+
 	// Main content area
 	switch m.mode {
 	case ModeCelebration:
@@ -33,7 +38,7 @@ func (m Model) View() string {
 		sections = append(sections, "")
 		sections = append(sections, m.renderInputForm())
 	default:
-		if len(m.data.Items) == 0 {
+		if m.GetCurrentItems() == 0 {
 			sections = append(sections, m.renderEmptyState())
 		} else {
 			sections = append(sections, m.renderTable())
@@ -65,11 +70,39 @@ func (m Model) View() string {
 }
 
 func (m Model) renderHeader() string {
-	title := ui.TitleStyle.Render("upnext")
+	title := ui.TitleStyle.Render("⚡ upnext")
 	subtitle := ui.SubtitleStyle.Render(" - what's next?")
 	content := title + subtitle
 
 	return ui.HeaderStyle.Width(m.width - 4).Render(content)
+}
+
+func (m Model) renderTabs() string {
+	// Tab labels
+	activeLabel := fmt.Sprintf(" Active (%d) ", len(m.filteredItems))
+	completedLabel := fmt.Sprintf(" Completed (%d) ", len(m.filteredArchive))
+
+	var activeTab, completedTab string
+	if m.tab == TabActive {
+		activeTab = ui.TabActiveStyle.Render(activeLabel)
+		completedTab = ui.TabInactiveStyle.Render(completedLabel)
+	} else {
+		activeTab = ui.TabInactiveStyle.Render(activeLabel)
+		completedTab = ui.TabActiveStyle.Render(completedLabel)
+	}
+
+	tabs := lipgloss.JoinHorizontal(lipgloss.Bottom, activeTab, " ", completedTab)
+
+	// Context indicator
+	var contextInfo string
+	if m.showAllTasks {
+		contextInfo = ui.ContextStyle.Render("  " + ui.IconGlobal + " showing all tasks")
+	} else if m.cwd != "" {
+		shortPath := filepath.Base(m.cwd)
+		contextInfo = ui.ContextStyle.Render("  " + ui.IconFolder + " " + shortPath)
+	}
+
+	return tabs + contextInfo
 }
 
 func (m Model) renderTable() string {
@@ -83,7 +116,12 @@ func (m Model) renderEmptyState() string {
       ·     ✦  ·    ✦  ·
     ✦   ·  ✦    ·  ✦    ·
 `
-	message := "Nothing to do! Press 'a' to add a task."
+	var message string
+	if m.tab == TabActive {
+		message = "Nothing to do! Press 'a' to add a task."
+	} else {
+		message = "No completed tasks yet. Complete some tasks to see them here!"
+	}
 
 	content := lipgloss.JoinVertical(
 		lipgloss.Center,
@@ -95,7 +133,7 @@ func (m Model) renderEmptyState() string {
 	// Center in available space
 	return lipgloss.Place(
 		m.width,
-		m.height-10,
+		m.height-14,
 		lipgloss.Center,
 		lipgloss.Center,
 		content,
@@ -106,7 +144,7 @@ func (m Model) renderInputForm() string {
 	var b strings.Builder
 
 	// Form title
-	title := ui.DialogTitleStyle.Render("Add New Task")
+	title := ui.DialogTitleStyle.Render("✨ Add New Task")
 	b.WriteString(title)
 	b.WriteString("\n\n")
 
@@ -183,14 +221,26 @@ func (m Model) renderHelpBar() string {
 }
 
 func (m Model) renderStatusBar() string {
-	// Left side: item count
-	itemCount := fmt.Sprintf("%d items", len(m.data.Items))
-	if len(m.data.Items) == 1 {
-		itemCount = "1 item"
+	// Left side: item count based on current tab
+	var itemCount string
+	if m.tab == TabActive {
+		count := len(m.filteredItems)
+		if count == 1 {
+			itemCount = "1 active task"
+		} else {
+			itemCount = fmt.Sprintf("%d active tasks", count)
+		}
+	} else {
+		count := len(m.filteredArchive)
+		if count == 1 {
+			itemCount = "1 completed task"
+		} else {
+			itemCount = fmt.Sprintf("%d completed tasks", count)
+		}
 	}
 
 	// Right side: total completed
-	completed := fmt.Sprintf("%d completed", m.data.Stats.TotalCompleted)
+	completed := fmt.Sprintf("🏆 %d total completed", m.data.Stats.TotalCompleted)
 
 	// Calculate padding
 	leftContent := itemCount
@@ -211,22 +261,26 @@ func (m Model) renderFullHelp() string {
 		key  string
 		desc string
 	}{
-		{"↑/k", "Move up"},
-		{"↓/j", "Move down"},
-		{"enter/d", "Complete task"},
+		{"↑/k, ↓/j", "Navigate tasks"},
+		{"pgup/^u, pgdn/^d", "Page up/down"},
+		{"g/G", "Go to top/bottom"},
+		{"1/2", "Switch to Active/Completed tab"},
+		{"enter/d", "Complete task (Active) / View (Completed)"},
+		{"u", "Uncomplete task (Completed tab)"},
 		{"a", "Add new task"},
 		{"x", "Drop (delete) task"},
 		{"b", "Bump task to top"},
+		{"A", "Toggle show all tasks"},
 		{"?", "Toggle help"},
 		{"q/esc", "Quit"},
 	}
 
 	var lines []string
-	lines = append(lines, ui.DialogTitleStyle.Render("Keyboard Shortcuts"))
+	lines = append(lines, ui.DialogTitleStyle.Render("⌨️  Keyboard Shortcuts"))
 	lines = append(lines, "")
 
 	for _, item := range helpItems {
-		key := ui.HelpKeyStyle.Render(fmt.Sprintf("%12s", item.key))
+		key := ui.HelpKeyStyle.Render(fmt.Sprintf("%18s", item.key))
 		desc := ui.HelpDescStyle.Render("  " + item.desc)
 		lines = append(lines, key+desc)
 	}
@@ -270,20 +324,27 @@ func (m Model) renderCelebration() string {
 
 // renderTaskDetails shows expanded details for the selected task
 func (m Model) renderTaskDetails() string {
-	if len(m.data.Items) == 0 {
+	if m.tab == TabActive {
+		return m.renderActiveTaskDetails()
+	}
+	return m.renderCompletedTaskDetails()
+}
+
+func (m Model) renderActiveTaskDetails() string {
+	if len(m.filteredItems) == 0 {
 		return ""
 	}
 
 	cursor := m.table.Cursor()
-	if cursor >= len(m.data.Items) {
+	if cursor >= len(m.filteredItems) {
 		return ""
 	}
 
-	item := m.data.Items[cursor]
+	item := m.filteredItems[cursor]
 	var lines []string
 
 	// Title with task number indicator
-	taskNum := fmt.Sprintf("Task %d of %d", cursor+1, len(m.data.Items))
+	taskNum := fmt.Sprintf("Task %d of %d", cursor+1, len(m.filteredItems))
 	headerLine := ui.DimStyle.Render(taskNum)
 	lines = append(lines, headerLine)
 	lines = append(lines, "")
@@ -296,7 +357,6 @@ func (m Model) renderTaskDetails() string {
 		lines = append(lines, "")
 		descLabel := ui.LabelStyle.Render("Description:")
 		lines = append(lines, descLabel)
-		// Word wrap description for better readability
 		descText := ui.SubtitleStyle.Render(item.Description)
 		lines = append(lines, descText)
 	}
@@ -317,6 +377,13 @@ func (m Model) renderTaskDetails() string {
 	priText := priStyle.Render(priIcon + " " + item.Priority.String() + " priority")
 	ageText := ui.DimStyle.Render("Created: " + formatAge(item.Created))
 	infoLine := priText + "  " + ui.DimStyle.Render("•") + "  " + ageText
+
+	// Context info
+	ctx := model.GetContextDisplay(item.Context, m.cwd)
+	if ctx != "" {
+		infoLine += "  " + ui.DimStyle.Render("•") + "  " + ui.ContextStyle.Render(ctx)
+	}
+
 	lines = append(lines, infoLine)
 
 	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
@@ -324,7 +391,70 @@ func (m Model) renderTaskDetails() string {
 	// Create a styled panel
 	panelStyle := lipgloss.NewStyle().
 		BorderStyle(lipgloss.RoundedBorder()).
-		BorderForeground(ui.Surface1).
+		BorderForeground(ui.BrightViolet).
+		Padding(0, 1).
+		Width(m.width - 6)
+
+	return panelStyle.Render(content)
+}
+
+func (m Model) renderCompletedTaskDetails() string {
+	if len(m.filteredArchive) == 0 {
+		return ""
+	}
+
+	cursor := m.table.Cursor()
+	if cursor >= len(m.filteredArchive) {
+		return ""
+	}
+
+	// Get the item (reversed order)
+	item := m.filteredArchive[len(m.filteredArchive)-1-cursor]
+	var lines []string
+
+	// Title with task number indicator
+	taskNum := fmt.Sprintf("Completed task %d of %d", cursor+1, len(m.filteredArchive))
+	headerLine := ui.DimStyle.Render(taskNum)
+	lines = append(lines, headerLine)
+	lines = append(lines, "")
+
+	// Full task text with checkmark
+	lines = append(lines, ui.CheckmarkStyle.Render("✓ ")+ui.TitleStyle.Render(item.Text))
+
+	// Description (if available)
+	if item.Description != "" {
+		lines = append(lines, "")
+		descLabel := ui.LabelStyle.Render("Description:")
+		lines = append(lines, descLabel)
+		descText := ui.SubtitleStyle.Render(item.Description)
+		lines = append(lines, descText)
+	}
+
+	lines = append(lines, "")
+
+	// Completion info
+	completedText := ui.CheckmarkStyle.Render("Completed: " + formatAge(item.Completed))
+	createdText := ui.DimStyle.Render("Created: " + formatAge(item.Created))
+	infoLine := completedText + "  " + ui.DimStyle.Render("•") + "  " + createdText
+
+	// Context info
+	ctx := model.GetContextDisplay(item.Context, m.cwd)
+	if ctx != "" {
+		infoLine += "  " + ui.DimStyle.Render("•") + "  " + ui.ContextStyle.Render(ctx)
+	}
+
+	lines = append(lines, infoLine)
+
+	// Hint about uncomplete
+	lines = append(lines, "")
+	lines = append(lines, ui.DimStyle.Render("Press 'u' to move back to active tasks"))
+
+	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
+
+	// Create a styled panel
+	panelStyle := lipgloss.NewStyle().
+		BorderStyle(lipgloss.RoundedBorder()).
+		BorderForeground(ui.BrightViolet).
 		Padding(0, 1).
 		Width(m.width - 6)
 
