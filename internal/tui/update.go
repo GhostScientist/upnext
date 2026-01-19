@@ -19,21 +19,37 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = msg.Height
 
 		// Update table dimensions
-		tableHeight := m.height - 10 // Reserve space for header, status bar, help
+		tableHeight := m.height - 14 // Reserve space for header, tabs, status bar, help, details
 		if tableHeight < 5 {
 			tableHeight = 5
 		}
 		m.table.SetHeight(tableHeight)
 
 		// Update column widths based on available space
-		taskWidth := m.width - 30 // Reserve space for other columns
-		if taskWidth < 20 {
-			taskWidth = 20
+		// Reserve space: status(3) + pri(5) + age(10) + padding(~17) = 35
+		availableWidth := m.width - 35
+		if availableWidth < 60 {
+			availableWidth = 60
+		}
+		// Split available space between task, description, and context
+		taskWidth := availableWidth * 45 / 100
+		descWidth := availableWidth * 30 / 100
+		ctxWidth := availableWidth * 25 / 100
+		if taskWidth < 15 {
+			taskWidth = 15
+		}
+		if descWidth < 10 {
+			descWidth = 10
+		}
+		if ctxWidth < 10 {
+			ctxWidth = 10
 		}
 		m.table.SetColumns([]table.Column{
 			{Title: "", Width: 3},
 			{Title: "Pri", Width: 5},
 			{Title: "Task", Width: taskWidth},
+			{Title: "Description", Width: descWidth},
+			{Title: "Context", Width: ctxWidth},
 			{Title: "Age", Width: 10},
 		})
 		m.refreshTable()
@@ -100,32 +116,73 @@ func (m Model) handleKeyPress(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit
 
-	case key.Matches(msg, m.keys.Done):
-		if m.CompleteTodo() {
+	case key.Matches(msg, m.keys.Tab):
+		// Switch between Active and Completed tabs
+		m.SwitchTab()
+		return m, nil
+
+	case msg.String() == "1":
+		// Go to Active tab
+		if m.tab != TabActive {
+			m.tab = TabActive
+			m.refreshTable()
+			m.table.SetCursor(0)
+		}
+		return m, nil
+
+	case msg.String() == "2":
+		// Go to Completed tab
+		if m.tab != TabCompleted {
+			m.tab = TabCompleted
+			m.refreshTable()
+			m.table.SetCursor(0)
+		}
+		return m, nil
+
+	case key.Matches(msg, m.keys.ToggleAll):
+		m.ToggleShowAll()
+		return m, nil
+
+	case key.Matches(msg, m.keys.Uncomplete):
+		if m.UncompleteTodo() {
 			if err := m.Save(); err != nil {
 				m.err = err
 			}
-			// Check for celebration milestone
-			if m.IsCelebrationMilestone() {
-				m.mode = ModeCelebration
-				m.celebrationMsg = getCelebrationMessage(m.data.Stats.TotalCompleted)
-				return m, tea.Tick(time.Second*3, func(time.Time) tea.Msg {
-					return celebrationTickMsg{}
-				})
+		}
+		return m, nil
+
+	case key.Matches(msg, m.keys.Done):
+		if m.tab == TabActive {
+			if m.CompleteTodo() {
+				if err := m.Save(); err != nil {
+					m.err = err
+				}
+				// Check for celebration milestone
+				if m.IsCelebrationMilestone() {
+					m.mode = ModeCelebration
+					m.celebrationMsg = getCelebrationMessage(m.data.Stats.TotalCompleted)
+					return m, tea.Tick(time.Second*3, func(time.Time) tea.Msg {
+						return celebrationTickMsg{}
+					})
+				}
 			}
 		}
 		return m, nil
 
 	case key.Matches(msg, m.keys.Add):
-		m.mode = ModeInput
-		m.inputFocus = 0
-		m.priorityIndex = 1 // Default to Medium
-		m.titleInput.SetValue("")
-		m.descInput.SetValue("")
-		m.titleInput.Focus()
-		m.titleInput.PromptStyle = ui.FocusedStyle
-		m.descInput.PromptStyle = ui.BlurredStyle
-		return m, m.titleInput.Focus()
+		// Only allow adding tasks in Active tab
+		if m.tab == TabActive {
+			m.mode = ModeInput
+			m.inputFocus = 0
+			m.priorityIndex = 1 // Default to Medium
+			m.titleInput.SetValue("")
+			m.descInput.SetValue("")
+			m.titleInput.Focus()
+			m.titleInput.PromptStyle = ui.FocusedStyle
+			m.descInput.PromptStyle = ui.BlurredStyle
+			return m, m.titleInput.Focus()
+		}
+		return m, nil
 
 	case key.Matches(msg, m.keys.Drop):
 		m.DropTodo()

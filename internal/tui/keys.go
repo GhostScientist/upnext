@@ -7,19 +7,26 @@ import (
 
 // KeyMap defines the key bindings using bubbles key.Binding
 type KeyMap struct {
-	Up      key.Binding
-	Down    key.Binding
-	Done    key.Binding
-	Add     key.Binding
-	Drop    key.Binding
-	Bump    key.Binding
-	Help    key.Binding
-	Quit    key.Binding
-	Confirm key.Binding
-	Cancel  key.Binding
-	Tab     key.Binding
-	Left    key.Binding
-	Right   key.Binding
+	Up         key.Binding
+	Down       key.Binding
+	PageUp     key.Binding
+	PageDown   key.Binding
+	GotoTop    key.Binding
+	GotoBottom key.Binding
+	Done       key.Binding
+	Add        key.Binding
+	Drop       key.Binding
+	Bump       key.Binding
+	Help       key.Binding
+	Quit       key.Binding
+	Confirm    key.Binding
+	Cancel     key.Binding
+	Tab        key.Binding // Switch between Active/Completed tabs
+	FormTab    key.Binding // Tab between form fields
+	Left       key.Binding
+	Right      key.Binding
+	ToggleAll  key.Binding // Toggle show all tasks
+	Uncomplete key.Binding // Move completed task back to active
 }
 
 // DefaultKeyMap returns the default key bindings
@@ -31,6 +38,22 @@ var DefaultKeyMap = KeyMap{
 	Down: key.NewBinding(
 		key.WithKeys("j", "down"),
 		key.WithHelp("↓/j", "down"),
+	),
+	PageUp: key.NewBinding(
+		key.WithKeys("pgup", "ctrl+u"),
+		key.WithHelp("pgup/^u", "page up"),
+	),
+	PageDown: key.NewBinding(
+		key.WithKeys("pgdown", "ctrl+d"),
+		key.WithHelp("pgdn/^d", "page down"),
+	),
+	GotoTop: key.NewBinding(
+		key.WithKeys("home", "g"),
+		key.WithHelp("g/home", "go to top"),
+	),
+	GotoBottom: key.NewBinding(
+		key.WithKeys("end", "G"),
+		key.WithHelp("G/end", "go to bottom"),
 	),
 	Done: key.NewBinding(
 		key.WithKeys("enter", "d"),
@@ -65,6 +88,10 @@ var DefaultKeyMap = KeyMap{
 		key.WithHelp("esc", "cancel"),
 	),
 	Tab: key.NewBinding(
+		key.WithKeys("1", "2"),
+		key.WithHelp("1/2", "switch tab"),
+	),
+	FormTab: key.NewBinding(
 		key.WithKeys("tab", "shift+tab"),
 		key.WithHelp("tab", "next field"),
 	),
@@ -75,6 +102,14 @@ var DefaultKeyMap = KeyMap{
 	Right: key.NewBinding(
 		key.WithKeys("right", "l"),
 		key.WithHelp("→/l", "right"),
+	),
+	ToggleAll: key.NewBinding(
+		key.WithKeys("A"),
+		key.WithHelp("A", "toggle all"),
+	),
+	Uncomplete: key.NewBinding(
+		key.WithKeys("u"),
+		key.WithHelp("u", "uncomplete"),
 	),
 }
 

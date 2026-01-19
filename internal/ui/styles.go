@@ -4,8 +4,21 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// Catppuccin Mocha color palette
+// Vibrant blue/purple color palette
 var (
+	// Primary accent colors - vibrant blues and purples
+	ElectricBlue   = lipgloss.Color("#00d4ff")
+	NeonPurple     = lipgloss.Color("#bf5fff")
+	BrightViolet   = lipgloss.Color("#9d4edd")
+	CyberPink      = lipgloss.Color("#ff6bd6")
+	DeepMagenta    = lipgloss.Color("#c026d3")
+	RoyalBlue      = lipgloss.Color("#6366f1")
+	SkyBlue        = lipgloss.Color("#38bdf8")
+	Cyan           = lipgloss.Color("#22d3ee")
+	Indigo         = lipgloss.Color("#818cf8")
+	LightPurple    = lipgloss.Color("#c4b5fd")
+
+	// Keep some Catppuccin colors for text/backgrounds
 	Rosewater = lipgloss.Color("#f5e0dc")
 	Flamingo  = lipgloss.Color("#f2cdcd")
 	Pink      = lipgloss.Color("#f5c2e7")
@@ -36,28 +49,44 @@ var (
 
 // Styles for the TUI
 var (
-	// Header box style with rounded border
+	// Header box style with rounded border - vibrant
 	HeaderStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(Mauve).
+			Foreground(ElectricBlue).
 			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(Mauve).
+			BorderForeground(NeonPurple).
 			Padding(0, 1)
 
 	// Title text inside header
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(Text)
+			Foreground(ElectricBlue)
 
 	// Subtitle/tagline
 	SubtitleStyle = lipgloss.NewStyle().
-			Foreground(Subtext0).
+			Foreground(LightPurple).
 			Italic(true)
+
+	// Tab styles
+	TabActiveStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(Base).
+			Background(ElectricBlue).
+			Padding(0, 2)
+
+	TabInactiveStyle = lipgloss.NewStyle().
+				Foreground(Overlay1).
+				Background(Surface0).
+				Padding(0, 2)
+
+	TabBarStyle = lipgloss.NewStyle().
+			Background(Surface0).
+			Padding(0, 1)
 
 	// Selected item style
 	SelectedStyle = lipgloss.NewStyle().
 			Bold(true).
-			Foreground(Mauve).
+			Foreground(ElectricBlue).
 			Background(Surface0).
 			Padding(0, 1)
 
@@ -68,12 +97,12 @@ var (
 
 	// Cursor style
 	CursorStyle = lipgloss.NewStyle().
-			Foreground(Mauve).
+			Foreground(NeonPurple).
 			Bold(true)
 
 	// Progress bar filled portion
 	ProgressFilledStyle = lipgloss.NewStyle().
-				Foreground(Green)
+				Foreground(ElectricBlue)
 
 	// Progress bar empty portion
 	ProgressEmptyStyle = lipgloss.NewStyle().
@@ -81,13 +110,13 @@ var (
 
 	// Status bar style
 	StatusBarStyle = lipgloss.NewStyle().
-			Foreground(Subtext0).
+			Foreground(LightPurple).
 			Background(Surface0).
 			Padding(0, 1)
 
 	// Help key style
 	HelpKeyStyle = lipgloss.NewStyle().
-			Foreground(Mauve).
+			Foreground(ElectricBlue).
 			Bold(true)
 
 	// Help description style
@@ -97,18 +126,18 @@ var (
 	// Help overlay style
 	HelpOverlayStyle = lipgloss.NewStyle().
 				BorderStyle(lipgloss.RoundedBorder()).
-				BorderForeground(Mauve).
+				BorderForeground(NeonPurple).
 				Padding(1, 2).
 				Background(Base)
 
 	// Empty state style
 	EmptyStyle = lipgloss.NewStyle().
-			Foreground(Overlay1).
+			Foreground(Indigo).
 			Italic(true)
 
 	// Input prompt style
 	InputPromptStyle = lipgloss.NewStyle().
-				Foreground(Mauve).
+				Foreground(ElectricBlue).
 				Bold(true)
 
 	// Input text style
@@ -117,12 +146,12 @@ var (
 
 	// Celebration style
 	CelebrationStyle = lipgloss.NewStyle().
-				Foreground(Yellow).
+				Foreground(CyberPink).
 				Bold(true)
 
 	// Checkmark for completed items
 	CheckmarkStyle = lipgloss.NewStyle().
-			Foreground(Green).
+			Foreground(ElectricBlue).
 			Bold(true)
 
 	// Dimmed text for timestamps etc
@@ -132,41 +161,41 @@ var (
 	// Table styles
 	TableHeaderStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(Mauve).
+				Foreground(NeonPurple).
 				BorderStyle(lipgloss.NormalBorder()).
 				BorderBottom(true).
-				BorderForeground(Surface1)
+				BorderForeground(BrightViolet)
 
 	TableSelectedStyle = lipgloss.NewStyle().
 				Background(Surface0).
-				Foreground(Text).
+				Foreground(ElectricBlue).
 				Bold(true)
 
 	TableCellStyle = lipgloss.NewStyle().
 			Foreground(Text).
 			Padding(0, 1)
 
-	// Priority styles
+	// Priority styles - using vibrant colors
 	PriorityHighStyle = lipgloss.NewStyle().
-				Foreground(Red).
+				Foreground(CyberPink).
 				Bold(true)
 
 	PriorityMediumStyle = lipgloss.NewStyle().
-				Foreground(Yellow)
+				Foreground(NeonPurple)
 
 	PriorityLowStyle = lipgloss.NewStyle().
-				Foreground(Green)
+				Foreground(SkyBlue)
 
 	// Dialog/modal styles
 	DialogStyle = lipgloss.NewStyle().
 			BorderStyle(lipgloss.RoundedBorder()).
-			BorderForeground(Mauve).
+			BorderForeground(NeonPurple).
 			Padding(1, 2).
 			Background(Base)
 
 	DialogTitleStyle = lipgloss.NewStyle().
 				Bold(true).
-				Foreground(Text).
+				Foreground(ElectricBlue).
 				MarginBottom(1)
 
 	ButtonStyle = lipgloss.NewStyle().
@@ -177,7 +206,7 @@ var (
 
 	ButtonActiveStyle = lipgloss.NewStyle().
 				Foreground(Base).
-				Background(Mauve).
+				Background(ElectricBlue).
 				Padding(0, 2).
 				MarginRight(1).
 				Bold(true)
@@ -188,15 +217,26 @@ var (
 
 	// Focus styles for form inputs
 	FocusedStyle = lipgloss.NewStyle().
-			Foreground(Mauve)
+			Foreground(ElectricBlue)
 
 	BlurredStyle = lipgloss.NewStyle().
 			Foreground(Subtext0)
 
 	// Label style for form fields
 	LabelStyle = lipgloss.NewStyle().
-			Foreground(Subtext1).
+			Foreground(LightPurple).
 			Width(12)
+
+	// Context/path style
+	ContextStyle = lipgloss.NewStyle().
+			Foreground(Indigo).
+			Italic(true)
+
+	// Group header style
+	GroupHeaderStyle = lipgloss.NewStyle().
+				Foreground(NeonPurple).
+				Bold(true).
+				MarginTop(1)
 )
 
 // Icons
@@ -209,6 +249,8 @@ const (
 	IconHigh      = "▲"
 	IconMedium    = "◆"
 	IconLow       = "▽"
+	IconFolder    = "📁"
+	IconGlobal    = "🌐"
 )
 
 // RenderProgressBar creates a gradient progress bar
@@ -216,7 +258,6 @@ func RenderProgressBar(percent float64, width int) string {
 	filled := int(float64(width) * percent)
 	empty := width - filled
 
-	// Gradient colors from green to yellow based on "age" or urgency
 	var bar string
 	for i := 0; i < filled; i++ {
 		bar += ProgressFilledStyle.Render("█")
